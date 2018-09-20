@@ -1,4 +1,4 @@
-package com.ruochuchina.jwt;
+package com.ruochuchina.jwt.common;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTCreator;
@@ -8,6 +8,8 @@ import com.auth0.jwt.impl.PublicClaims;
 import com.auth0.jwt.interfaces.Verification;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
+import com.ruochuchina.jwt.authority.AuthoritySession;
+import com.ruochuchina.jwt.util.DesAlgorithm;
 import org.nguyen.foun.utils.DateUtils;
 
 import java.util.Date;
@@ -24,6 +26,7 @@ public class JwtAuthentication {
     private final JWTCreator.Builder jwtBuilder;
     private final Verification verification;
     private final DesAlgorithm algorithm;
+
     private JwtAuthentication(String secret) {
         try {
             this.secret = secret;
@@ -42,7 +45,7 @@ public class JwtAuthentication {
         }
     }
 
-    private String joiner(Object ... objects) {
+    private String joiner(Object... objects) {
         return Joiner.on(":").join(objects);
     }
 
@@ -52,13 +55,12 @@ public class JwtAuthentication {
         return algorithm.encrypt(msg);
     }
 
-    private AuthoritySession verifyPubKey(String pubKey) {
+    public AuthoritySession verifyPubKey(String pubKey) {
         String msg = algorithm.decrypt(pubKey);
         List<String> msgList = Splitter.on(":").splitToList(msg);
         if (msgList.size() == 3) {
             boolean even = 0 == (Long.parseLong(msgList.get(1)) % 2);
             AuthoritySession session = new AuthoritySession();
-            session.pubkeyCode = 200;
             session.userId = even ? msgList.get(0) : msgList.get(2);
             session.roleId = even ? msgList.get(2) : msgList.get(0);
             return session;
@@ -82,13 +84,12 @@ public class JwtAuthentication {
 
     public AuthoritySession verifySignature(String pubKey, String signature) {
         AuthoritySession session = verifyPubKey(pubKey);
-        if (200 == session.pubkeyCode) {
+        if (null != session) {
             try {
                 JWTVerifier verifier = verification
                         .withClaim(PublicClaims.SUBJECT, joiner(session.userId, session.roleId))
                         .build();
                 verifier.verify(signature);
-                session.signatureCode = 200;
             } catch (Exception e) {
                 throw new RuntimeException("verify signature error", e);
             }
@@ -96,15 +97,4 @@ public class JwtAuthentication {
         return session;
     }
 
-    public static void main(String[] args) throws Exception {
-        JwtAuthentication jwtAuthentication = new JwtAuthentication("ruochuchina");
-        String pubKey = jwtAuthentication.calPubKey("user_id", "role_id");
-        System.out.println(pubKey);
-        AuthoritySession session = jwtAuthentication.verifyPubKey(pubKey);
-        System.out.println("userId:" + session.userId);
-        System.out.println("roleId:" + session.roleId);
-        String signature = jwtAuthentication.calSignature(session.userId, session.roleId, 1000);
-        Thread.sleep(2000);
-        System.out.println(jwtAuthentication.verifySignature(pubKey, signature).signatureCode);
-    }
 }

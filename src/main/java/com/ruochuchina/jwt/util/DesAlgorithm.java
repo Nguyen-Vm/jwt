@@ -1,4 +1,4 @@
-package com.ruochuchina.jwt;
+package com.ruochuchina.jwt.util;
 
 import org.nguyen.foun.utils.CryptUtils;
 
